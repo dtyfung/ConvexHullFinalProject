@@ -23,6 +23,10 @@ public class Generator {
     	    System.out.println( "usage: java Generator <# of points> <xRange> <yRange> <filename>" );
     	    System.exit( -1 );
     	}
+      if ( args[0] > args[1] * args[2] ) {
+        System.out.println("# of points cannot be more than xRange * yRange");
+        System.exit( -1 );
+      }
     	Generator g = new Generator( args );
     }
 
