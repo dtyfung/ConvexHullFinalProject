@@ -49,6 +49,7 @@ public class Generator {
       		      remainingPts--;
   		    }
 	      }
+       file.println();
   	    if ( file != null ) {
       		file.close( );
       		System.out.println( "file: " + args[3] + " was created" );
