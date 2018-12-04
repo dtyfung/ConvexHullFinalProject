@@ -32,6 +32,9 @@ public class SparkConvexHull {
            
             // split each point and create new point objects
             for (String current : buff) {
+                if(current.equals("")) {
+                    continue;
+                }
                 String[] temp = current.split(","); 
                 int x = Integer.parseInt(temp[0]);
                 int y = Integer.parseInt(temp[1]);
@@ -74,14 +77,21 @@ public class SparkConvexHull {
             } 
             
             List<Point> res = convexHull(list, list.size());
+
             return res.iterator();
         } );
 
+        List<Point> local = localReduced.collect();
+        System.out.println("Number of Convex Hall points: " + local.size());
+        for (Point current : local) {
+             System.out.println("(" + current.x + ", " + current.y + ") ; ");
+         }
+
         // Merge all RDD into 1
-        localReduced.repartition(1);
+        JavaRDD<Point> global = localReduced.repartition(1);
 
         // Compute Global convex hall for each part of rdd.
-        JavaRDD<Point> globalReduced = localReduced.mapPartitions( theIterator -> {
+        JavaRDD<Point> globalReduced = global.mapPartitions( theIterator -> {
             // extract all point from iterator to a list
             List<Point> list = new ArrayList<Point>(); 
             
@@ -94,13 +104,13 @@ public class SparkConvexHull {
             return res.iterator();
         } );
 
-        List<Point> res = localReduced.collect();
+        List<Point> res = globalReduced.collect();
         long endTime = System.currentTimeMillis();
 
         System.out.println("Elapsed time = " + (endTime - startTime));
         System.out.println("Number of Convex Hall points: " + res.size());
         for(Point current : res) {
-            System.out.println("(" + current.x + ", " + current.y + ") ; ");
+            System.out.println("(" + current.x + ", " + current.y + "); ");
         }
         jsc.stop();
     }
