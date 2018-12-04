@@ -2,8 +2,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
-import sun.misc.JavaAWTAccess;
 
 import java.lang.*;
 import java.io.Serializable;
@@ -12,7 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.awt.Point;
 
-public class ShortestPath {
+public class SparkConvexHull {
 
     public static void main(String[] args) {
             // start Sparks and read a given input file
@@ -29,13 +27,15 @@ public class ShortestPath {
 
         JavaRDD<Point> pointSet = lines.flatMap( line -> { 
             line.trim();
-            String[] buff = pointSetline.split(" ");
+            String[] buff = line.split(" ");
             List<Point> list = new ArrayList<Point>();
            
             // split each point and create new point objects
             for (String current : buff) {
                 String[] temp = current.split(","); 
-                res.add(new Point(String[0], String[1]));
+                int x = Integer.parseInt(temp[0]);
+                int y = Integer.parseInt(temp[1]);
+                list.add(new Point(x, y));
             }
             return list.iterator();
         } );
@@ -64,7 +64,7 @@ public class ShortestPath {
 
 
         // Compute local convex hall for each part of rdd.
-        pointSet.mapPartitions( theIterator -> {
+        JavaRDD<Point> localReduced = pointSet.mapPartitions( theIterator -> {
             // extract all point from iterator to a list
             List<Point> list = new ArrayList<Point>(); 
             
@@ -78,10 +78,10 @@ public class ShortestPath {
         } );
 
         // Merge all RDD into 1
-        pointSet.repartition(1);
+        localReduced.repartition(1);
 
         // Compute Global convex hall for each part of rdd.
-        pointSet.mapPartitions( theIterator -> {
+        JavaRDD<Point> globalReduced = localReduced.mapPartitions( theIterator -> {
             // extract all point from iterator to a list
             List<Point> list = new ArrayList<Point>(); 
             
@@ -94,18 +94,21 @@ public class ShortestPath {
             return res.iterator();
         } );
 
+        List<Point> res = localReduced.collect();
         long endTime = System.currentTimeMillis();
-        List<Data> res = network.lookup(end);
-        System.out.println("Shortest path is: " + res.get(0).distance);
+
         System.out.println("Elapsed time = " + (endTime - startTime));
+        System.out.println("Number of Convex Hall points: " + res.size());
+        for(Point current : res) {
+            System.out.println("(" + current.x + ", " + current.y + ") ; ");
+        }
         jsc.stop();
     }
 
 //---------------------------Jarvis’s Algorithm-----------------------------------------
     public static int orientation(Point p, Point q, Point r) 
     { 
-        int val = (q.y - p.y) * (r.x - q.x) - 
-              (q.x - p.x) * (r.y - q.y); 
+        int val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y); 
        
         if (val == 0) {
             return 0;  // collinear 
@@ -115,13 +118,13 @@ public class ShortestPath {
     } 
 
     //Compute convex hull of a set of n points.
-    public List<Point> convexHull(List<Point> list, int n) 
+    public static List<Point> convexHull(List<Point> list, int n) 
     { 
         // Initialize Result 
         List<Point> res = new ArrayList<Point>(); 
 
         // There must be at least 3 points 
-        if (n < 3) return res; 
+        if (n < 3) return list; 
        
         // Find the leftmost point 
         int l = 0; 
@@ -135,7 +138,7 @@ public class ShortestPath {
         int p = l, q; 
 
         // While don't come back to first point 
-        while (p != l) {  
+        do {  
             // Add current point to result 
             res.add(list.get(p)); 
        
@@ -145,13 +148,14 @@ public class ShortestPath {
             { 
                // If i is more counterclockwise than  
                // current q, then update q 
-               if (orientation(list.get(p), list.get(i), list.get(q)) == 2) 
-                   q = i; 
+               if (orientation(list.get(p), list.get(i), list.get(q)) == 2) {
+                    q = i; 
+               }
             } 
        
             // Now q is the most counterclockwise with 
             p = q; 
-        } 
+        } while (p != l);
         
         return res;
 
