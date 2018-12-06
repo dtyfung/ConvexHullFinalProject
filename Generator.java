@@ -68,8 +68,6 @@ public class Generator {
 				}
 			}
 			
-			file.println();
-			
 			if ( file != null ) {
 				file.close( );
 				System.out.println( "file: " + name + " was created" );

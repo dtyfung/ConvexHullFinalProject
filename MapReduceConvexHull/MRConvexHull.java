@@ -184,12 +184,8 @@ public class MRConvexHull {
       // again. This loop runs O(h) times where h is 
       // number of points in result or output. 
       int p = l, q; 
-      System.out.println("leftmost: " + l);
-      int count = 0;
       do
       { 
-          count++;
-          if (count > 5000) break;
           // Add current point to result 
           hull.add(points.get(p)); 
           System.out.println("added " + points.get(p).x + "," + points.get(p).y);
@@ -230,7 +226,6 @@ public class MRConvexHull {
   	conf1.setOutputValueClass(Text.class);
   	
   	conf1.setMapperClass(Map1.class);
-  	//conf1.setCombinerClass(Reduce1.class);
   	conf1.setReducerClass(Reduce1.class);
   	
   	conf1.setInputFormat(TextInputFormat.class);
@@ -239,7 +234,6 @@ public class MRConvexHull {
   	FileInputFormat.setInputPaths(conf1, new Path(args[0]));
   	FileOutputFormat.setOutputPath(conf1, new Path(tempDir));
     
-    //conf1.set( "argc", String.valueOf( args.length - 2 ) );
     conf1.set("xRange", args[2]);
     conf1.set("yRange", args[3]);
    
@@ -250,7 +244,6 @@ public class MRConvexHull {
   	conf2.setOutputValueClass(Text.class);
   	
   	conf2.setMapperClass(Map2.class);
-  	//conf2.setCombinerClass(Reduce2.class);
   	conf2.setReducerClass(Reduce2.class);
   	
   	conf2.setInputFormat(KeyValueTextInputFormat.class);
