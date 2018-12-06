@@ -97,22 +97,25 @@ class ConvexHull {
           System.out.println("usage: java ConvexHull <# of points> <input file name> <output file name>");
           System.exit( -1 );
         }
-        
+        final long startTime = System.currentTimeMillis();
         Point[] points = new Point[Integer.parseInt( args[0] )]; 
         
         try {
           File file = new File( args[1] );
-          Scanner input = new Scanner( file ).useDelimiter("\\s"); 
-          for ( int i = 0; input.hasNext(); i++ ) {
-            String[] s = input.next().split(",");
-            points[i] = new Point(Integer.parseInt(s[0]), Integer.parseInt(s[1]));
+          Scanner input = new Scanner( file ).useDelimiter("\r\n"); 
+          String str;
+          int i = 0;
+          while (!(str = input.nextLine()).isEmpty()) {
+            String[] line = str.split("\\s");
+            for ( int j = 0; j < line.length; j++ ) {              
+             String[] s = line[j].split(",");
+             points[i] = new Point(Integer.parseInt(s[0]), Integer.parseInt(s[1]));
+             i++;
+            }
           }
           int n = points.length; 
-          final long startTime = System.currentTimeMillis();
-   	      List<Point> hull = convexHull(points, n); 
-          final long endTime = System.currentTimeMillis();
           
-          System.out.println("Sequential Convex Hull (" + n + ") points took " + (endTime - startTime) + " msec."); 
+   	      List<Point> hull = convexHull(points, n); 
           
           // Print Result 
           PrintWriter output = new PrintWriter( args[2] );
@@ -120,6 +123,8 @@ class ConvexHull {
               output.println("(" + temp.x + ", " + temp.y + ")");  
           output.close( );
           System.out.println("output file: " + args[2] + " created.");
+          final long endTime = System.currentTimeMillis();
+          System.out.println("Sequential Convex Hull (" + n + ") points took " + (endTime - startTime) + " msec."); 
         
         } catch ( IOException e ) {
           e.printStackTrace(); 
