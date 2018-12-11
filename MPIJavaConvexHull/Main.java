@@ -30,22 +30,24 @@ public class Main {
 
 
 
-
+        // start measuring time
         final long startTime = System.currentTimeMillis();
         ArrayList<Point> points = new ArrayList<>();
 
         try(BufferedReader br = new BufferedReader(new FileReader(args[0]))) {
             br.lines().forEach(line -> Arrays.stream(line.split(" ")).map(aLine -> aLine.split(",")).map(s -> new Point(Integer.parseInt(s[0]), Integer.parseInt(s[1]))).forEach(points::add));
         }
-//        points.sort(Comparator.comparingInt(x -> x.x));
-        System.out.println("gotcha");
+
+        // sort along x axis
+        points.sort(Comparator.comparingInt(x -> x.x));
 
 
+        // each rank starts task
         if (myrank != 0 )
             splitPerform(myrank, size, points);
-        if (myrank == 0 )
+        if (myrank == 0 ) {
             receiveAndJoinHulls(points.size(), size, "johar.txt", startTime, points);
-
+        }
 
         MPI.Finalize();
 
@@ -54,7 +56,7 @@ public class Main {
     }
 
     static void splitPerform(int rank, int numRanks, ArrayList<Point> points) throws MPIException {
-        System.out.println(rank);
+        // split points for each rank to process
         int myBegin = (int) ((double)rank*((double)points.size()/(double)numRanks));
         int myEnd = (int) (myBegin+((double)points.size()/(double) numRanks));
         Point[] store = points.subList(myBegin, myEnd).toArray(new Point[0]);
@@ -69,6 +71,8 @@ public class Main {
 
         }
         hulle[hull.size()] = new Point(-1, -1);
+
+        // send to rank 0 to compute overall convex hull
         sendHull(hulle, points.size());
 
     }
@@ -93,6 +97,7 @@ public class Main {
         aggregate.add(0, new ArrayList<>(hull));
 
 
+        // collect results from all ranks
 
         for (int i = 1; i < numRanks; i++) {
             int[] message = new int[size * 2];
@@ -113,10 +118,10 @@ public class Main {
         output.close( );
         System.out.println("output file: " + outfile + " created.");
         final long endTime = System.currentTimeMillis();
-        System.out.println("Convex Hull  points took " + (endTime - startTime) + " msec.");
+        System.out.println("...\n...\n...\nConvex Hull  points took " + (endTime - startTime) + " msec.");
     }
 
-    //TODO: Implement function to join two convex hulls to get bigger convex hull
+    // join hulls by computing upper and lower tangents
     static List<Point> joinHulls(ArrayList<ArrayList<Point>> hulls) throws Exception {
         ArrayList<Point> accumulatorLeft = new ArrayList<>();
         ArrayList<Point> currentRight = new ArrayList<>();
@@ -139,6 +144,7 @@ public class Main {
         Point leftMost = left.get(left.size()-1);
         Point rightMost = right.get(0);
 
+        // get top comment tangents
         while(intersects(left, leftMost, rightMost) || intersects(right, leftMost, rightMost)) {
             if (intersects(left, leftMost, rightMost)) for (int i = left.size() - 1; i >= 0; i--)
                 if (left.get(i).y > leftMost.y) {
@@ -155,6 +161,7 @@ public class Main {
         Point bleftMost = left.get(left.size()-1);
         Point brightMost = right.get(0);
 
+        // get bottom common tangents
         while(intersects(left, leftMost, brightMost) || intersects(right, leftMost, brightMost)) {
             if (intersects(left, bleftMost, brightMost)) for (int i = left.size() - 1; i >= 0; i--)
                 if (left.get(i).y < bleftMost.y) {
