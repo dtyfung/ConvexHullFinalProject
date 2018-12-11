@@ -53,19 +53,16 @@ public class SparkConvexHull {
 			    list.add(p);
             } 
             
-            List<Point> res = convexHull(list, list.size());
+            List<Point> res = GrahamScan.getConvexHull(list);
 
             return res.iterator();
         } );
 
-        List<Point> local = localReduced.collect();
-        System.out.println("Number of Convex Hall points: " + local.size());
-        for (Point current : local) {
-             System.out.println("(" + current.x + ", " + current.y + ") ; ");
-         }
-
+        List<Point> templ = localReduced.collect();
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + count);
+    
         // Merge all RDD into 1
-        JavaRDD<Point> global = localReduced.repartition(1);
+        JavaRDD<Point> global = jsc.parallelize(temp, 1);
 
         // Compute Global convex hall for each part of rdd.
         JavaRDD<Point> globalReduced = global.mapPartitions( theIterator -> {
@@ -77,7 +74,7 @@ public class SparkConvexHull {
 			    list.add(p);
             } 
             
-            List<Point> res = convexHull(list, list.size());
+            List<Point> res = GrahamScan.getConvexHull(list);
             return res.iterator();
         } );
 
@@ -91,60 +88,4 @@ public class SparkConvexHull {
         }
         jsc.stop();
     }
-
-//---------------------------Jarvis’s Algorithm-----------------------------------------
-    public static int orientation(Point p, Point q, Point r) 
-    { 
-        int val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y); 
-       
-        if (val == 0) {
-            return 0;  // collinear 
-        } else {
-            return (val > 0)? 1: 2; // 1 -> clock or 2 -> counterclock wise 
-        }
-    } 
-
-    //Compute convex hull of a set of n points.
-    public static List<Point> convexHull(List<Point> list, int n) 
-    { 
-        // Initialize Result 
-        List<Point> res = new ArrayList<Point>(); 
-
-        // There must be at least 3 points 
-        if (n < 3) return list; 
-       
-        // Find the leftmost point 
-        int l = 0; 
-        for (int i = 1; i < n; i++) {
-            if (list.get(i).x < list.get(l).x) {
-                l = i; 
-            }
-       
-        }       
-
-        int p = l, q; 
-
-        // While don't come back to first point 
-        do {  
-            // Add current point to result 
-            res.add(list.get(p)); 
-       
-            q = (p + 1) % n; 
-                      
-            for (int i = 0; i < n; i++) 
-            { 
-               // If i is more counterclockwise than  
-               // current q, then update q 
-               if (orientation(list.get(p), list.get(i), list.get(q)) == 2) {
-                    q = i; 
-               }
-            } 
-       
-            // Now q is the most counterclockwise with 
-            p = q; 
-        } while (p != l);
-        
-        return res;
-
-    }     
 }
