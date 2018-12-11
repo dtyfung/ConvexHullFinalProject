@@ -43,29 +43,6 @@ public class SparkConvexHull {
             return list.iterator();
         } );
 
-        // boolean firstTime = ture;
-        // while (pointSet.count() >= 400) {
-
-        //     if (firstTime == false) {
-        //         pointSet.repartition(4);
-        //     }
-        //     // Compute local convex hall for each part of rdd.
-        //     pointSet.mapPartitions( theIterator -> {
-        //         // extract all point from iterator to a list
-        //         List<Point> list = new ArrayList<Point>(); 
-                
-        //         while(theIterator.hasNext()) {
-        //             Point p = theIterator.next();
-        //             list.add(p);
-        //         } 
-                
-        //         List<Point> res = convexHull(list, list.size());
-        //         return res.iterator();
-        //     } );
-
-        // }
-
-
         // Compute local convex hall for each part of rdd.
         JavaRDD<Point> localReduced = pointSet.mapPartitions( theIterator -> {
             // extract all point from iterator to a list
