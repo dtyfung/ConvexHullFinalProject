@@ -1,12 +1,12 @@
 /*
  * MRConvexHull.java
  *
- * Implementation is configured to a 4-node partition (cssmpi1 to cssmpi4).
- * Ideally would like to partition based on known nodes (difficult to find that out in code)
+ * Implementation is configured to a 4-node, 12 core partition (cssmpi1 to cssmpi4).
+ * Ideally would like to partition based on known PARTITIONS (difficult to find that out in code)
  * However can check using in bash: hadoop dfsadmin -report
  *
  * Usage:
- *   hadoop fs -rmr /user/<user name>/<hdfs output directory>
+ *   hadoop fs -rmr /user/<user name>/<hdfs output directories>
  *   javac -classpath ${HADOOP_HOME}/hadoop-${HADOOP_VERSION}-core.jar MRConvexHull.java
  *   jar -cvf mrconvexhull.jar *.class
  *   hadoop jar mrconvexhull.jar MRConvexHull <hdfs input directory> <hdfs output directory> <xRange> <yRange>
@@ -24,7 +24,7 @@ import org.apache.hadoop.util.*;
 import java.awt.Point;
 
 public class MRConvexHull {
-  static final int NODES = 4; // partitions based on # of nodes
+  static final int PARTITIONS = 12; // partitions based on # of cpu cores
   
   public static class Map1 extends MapReduceBase implements Mapper<LongWritable, Text, Text, Text>  {
  	  JobConf conf;
@@ -37,17 +37,16 @@ public class MRConvexHull {
       // retrieve user arguments
       int xRange = Integer.parseInt(conf.get("xRange"));
       int yRange = Integer.parseInt(conf.get("yRange"));     
-      int partitionSize = xRange / NODES;
-      int[] startRange = new int[NODES];
-      int[] endRange = new int[NODES]; 
-      int[] partitions = new int[NODES];
+      int partitionSize = xRange / PARTITIONS;
+      int[] startRange = new int[PARTITIONS];
+      int[] endRange = new int[PARTITIONS]; 
+      int[] partitions = new int[PARTITIONS];
       
       // set partition bounds
-      for ( int node = 0; node < NODES; node++) {
-        partitions[node] = xRange / NODES + ( ( node < xRange % NODES ) ? 1 : 0 );
+      for ( int node = 0; node < PARTITIONS; node++) {
+        partitions[node] = xRange / PARTITIONS + ( ( node < xRange % PARTITIONS ) ? 1 : 0 );
         startRange[node] = (node == 0) ? 0 : (endRange[node - 1] + 1);
         endRange[node] = startRange[node] + partitions[node] - 1;
-        System.out.println("node: " + node + " range[" + startRange[node] + "-" + endRange[node] + "]");
       }     
       
       String line = value.toString();
@@ -61,10 +60,9 @@ public class MRConvexHull {
         point = tokenizer.nextToken();
         coords = point.split(",");
         x = Integer.parseInt( coords[0] );
-        System.out.println("Read in point:(" + coords[0] + ", " + coords[1] + ")" );
         
         // partition points in terms of x-coordinate, then collects to output
-        for ( int partition = 0; partition < NODES; partition++ ) {
+        for ( int partition = 0; partition < PARTITIONS; partition++ ) {
           if ( x >= startRange[partition] && x <= endRange[partition] ) {
             output.collect( new Text( Integer.toString(partition) ), new Text( point ) );
             break;
@@ -92,16 +90,14 @@ public class MRConvexHull {
       
       // compute local hull
       List<Point> localHull = convexHull(points, points.size());      
-      System.out.println("Printing out local hull points for partition " + key.toString());
       for (Point p : localHull) {
         hullList += p.x + "," + p.y + " ";
       }    
-      System.out.println(hullList);
       output.collect(new Text( key ), new Text( hullList.trim() ));
       }
   }
   
-  
+  // Mapper class that maps all local hull data into a singular global key
   public static class Map2 extends MapReduceBase implements Mapper<Text, Text, Text, Text> {
  	  JobConf conf;
     public void configure( JobConf job ) {
@@ -121,16 +117,16 @@ public class MRConvexHull {
         point = tokenizer.nextToken();
         coords = point.split(",");
         x = Integer.parseInt( coords[0] );
-        System.out.println("Read in point:(" + coords[0] + ", " + coords[1] + ")" );
         output.collect( new Text( "global" ), new Text( point ) );
       }  
     }
   }
   
+  // Reducer class that computes the final global hull
   public static class Reduce2 extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
 	  public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, 
                                                      Reporter reporter) throws IOException {
-      String hullList = "";
+      String hullList = "\n";
       List<Point> points = new ArrayList<Point>(); 
       String[] coords; 
       while (values.hasNext()) {
@@ -139,22 +135,16 @@ public class MRConvexHull {
         points.add( new Point( Integer.parseInt( coords[0] ), Integer.parseInt( coords[1] ) ) );  
       }
       
-      for (Point pt : points) {
-        System.out.println(pt.x + "," + pt.y);
-      }
-      
       // compute global hull
       List<Point> localHull = convexHull(points, points.size());      
-      System.out.println("Printing out global hull");
       for (Point p : localHull) {
         hullList += "(" + p.x + ", " + p.y + ")\n";
       }    
-      System.out.println(hullList);
       output.collect(key, new Text( hullList.trim() ));
     }
   }
   
-  
+  /*********************************** Jarvis march algorithm *********************************/
   public static int orientation(Point p, Point q, Point r) 
   { 
         int val = (q.y - p.y) * (r.x - q.x) - 
