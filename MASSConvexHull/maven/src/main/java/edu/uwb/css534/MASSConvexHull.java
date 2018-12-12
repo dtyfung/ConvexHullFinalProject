@@ -1,7 +1,13 @@
 /*
   MASSConvexHull.java
   
-  This is the convex hull application.
+  This is the convex hull application in MASS.
+  
+  Usage:
+  To build: ~/apache-maven-3.6.0/bin/mvn package
+  To clean: ~/apache-maven-3.6.0/bin/mvn clean
+  Copy jar: cp ./target/prog5-1.0-SNAPSHOT.jar .
+  Run app : java -jar prog5-1.0-SNAPSHOT.jar
   
   
  	MASS Java Software License
@@ -77,84 +83,43 @@ public class MASSConvexHull {
 		MASS.init();
 		MASS.getLogger().debug( "MASS library initialized" );
 		
-		/* 
-		 * Create all Places (having dimensions of x, y, and z)
-		 * ( the total number of Place objects that will be created is: x * y * z )
-		 */
 		int placeCount = nodes * cores;
 	  
     // parses given file and stores into a list of list for each place
     Object[] dataList = readFile( filename, pointCount, placeCount );
     
+    MASS.getLogger().debug( "dataList size: " + dataList.length );
+    ArrayList<Point> list1 = (ArrayList<Point>)dataList[0];
+        
 		MASS.getLogger().debug( "Creating Places..." );
-		Places places = new Places( 1, PointPlace.class.getName(), null, placeCount );
+		Places places = new Places( 1, PointPlace.class.getName(), null, nodes, cores );
 		MASS.getLogger().debug( "Places created" );
     
-    /*
-    // initialize all places to have their own data set
-    MASS.getLogger().debug("Sending data to places...");
-    places.callAll( PointPlace.PLACE_INIT, dataList );
-    MASS.getLogger().debug("All places received data sets");
-    */
-    
 		// instruct all places to return the hostnames of the machines on which they reside
-		MASS.getLogger().debug( " Sending callAll to Places..." );
+		MASS.getLogger().debug( "Sending callAll to Places..." );
 		Object[] localHulls = ( Object[] ) places.callAll( PointPlace.COMPUTE_HULL, dataList );
 		MASS.getLogger().debug( "Places callAll operation complete" );
 		
-  
+    
     List<Point> res = new ArrayList<Point>();  
     for (int place = 0; place < placeCount; place++) {
       res.addAll((ArrayList<Point>)localHulls[place]);
     }
     
-    List<Point> globalHull = ConvexHull.computeHull(res);
+    System.out.println("Collected points: " + res.size());
     
-    MASS.getLogger().debug("Global hull;");
+    System.out.println("Computing global hull using graham scan");
+    List<Point> globalHull = GrahamScan.getConvexHull(res);
+    
+    System.out.println("Global hull");
+    //MASS.getLogger().debug("Global hull");
     for (Point p : globalHull) {
-      MASS.getLogger().debug(p.x + "," + p.y);
+      System.out.println(p.x + "," + p.y);
+      //MASS.getLogger().debug(p.x + "," + p.y);
     }
-    /*
-		// create Agents (number of Agents = x * y in this case), in Places
-		MASS.getLogger().debug( "Quickstart creating Agents..." );
-		Agents agents = new Agents( 1, Nomad.class.getName(), null, places, x * y );
-		MASS.getLogger().debug( "Agents created" );
-    */
     
-    /*
-		// instruct all Agents to return the hostnames of the machines on which they reside
-		Object[] agentsCallAllObjs = new Object[ x * y ];
-		MASS.getLogger().debug( "Quickstart sending callAll to Agents..." );
-		Object[] calledAgentsResults = ( Object[] ) agents.callAll( Nomad.GET_HOSTNAME, agentsCallAllObjs );
-		MASS.getLogger().debug( "Agents callAll operation complete" );
-		
-		// move all Agents across the Z dimension to cover all Places
-		for (int i = 0; i < z; i ++) {
-			
-			// tell Agents to move
-			MASS.getLogger().debug( "Quickstart instructs all Agents to migrate..." );
-			agents.callAll(Nomad.MIGRATE);
-			MASS.getLogger().debug( "Agent migration complete" );
-			
-			// sync all Agent status
-			MASS.getLogger().debug( "Quickstart sending manageAll to Agents..." );
-			agents.manageAll();
-			MASS.getLogger().debug( "Agents manageAll operation complete" );
-			
-			// find out where they live now
-			MASS.getLogger().debug( "Quickstart sending callAll to Agents..." );
-			calledAgentsResults = ( Object[] ) agents.callAll( Nomad.GET_HOSTNAME, agentsCallAllObjs );
-			MASS.getLogger().debug( "Agentcalls callAll operation complete" );
-			
-		}
-		
-		// find out where all of the Agents wound up when all movements complete
-		MASS.getLogger().debug( "Quickstart sending callAll to Agents to get final landing spot..." );
-		calledAgentsResults = ( Object[] ) agents.callAll(Nomad.GET_HOSTNAME, agentsCallAllObjs );
-		MASS.getLogger().debug( "Agents callAll operation complete" );
-		*/
 		// orderly shutdown
-		MASS.getLogger().debug( "Quickstart instructs MASS library to finish operations..." );
+		MASS.getLogger().debug( "MASSConvexHull instructs MASS library to finish operations..." );
 		MASS.finish();
 		MASS.getLogger().debug( "MASS library has stopped" );
 		
@@ -165,11 +130,21 @@ public class MASSConvexHull {
 	 }
    
    private static Object[] readFile(String filename, int pointCount, int placeCount) {
+     System.out.println("In readfile");
+     System.out.println("pointCount: " + pointCount);
+     System.out.println("placeCount: " + placeCount);
+     
      int partitionSize = pointCount/placeCount;
-     Object[] dataSet = new Object[placeCount];     
+     boolean fullPartitionDone = false;
+     
+     System.out.println("partitionSize: " + partitionSize);
+     
+     Object[] dataSet = new Object[placeCount];  
+     for (int i = 0; i < placeCount; i++) {
+       dataSet[i] = (Object)(new ArrayList<Point>());
+     }        
      
      List<Point> data = new ArrayList<Point>();
-     int k = 0;
      
      try {  
        File file = new File( filename );
@@ -178,27 +153,32 @@ public class MASSConvexHull {
        int i = 0;
        int addedPoints = 0;
        
-       while (!(str = input.nextLine()).isEmpty()) {
+       while (input.hasNextLine() && !(str = input.nextLine()).isEmpty()) {
          String[] line = str.split("\\s");
          for ( int j = 0; j < line.length; j++ ) {              
           String[] s = line[j].split(",");
-          // TODO: don't create new data list if k is last element in dataSet
-          if (addedPoints % partitionSize == 0) {
-            dataSet[k] = data;
-            data = new ArrayList<Point>();
-            k++;
-          }
-          data.add( new Point(Integer.parseInt(s[0]), Integer.parseInt(s[1])) );
+          
+          ((ArrayList<Point>)dataSet[i]).add( new Point(Integer.parseInt(s[0]), Integer.parseInt(s[1])) );
           addedPoints++;
-          i++;
+          
+          // creates new data set when partition size is reached
+          if ( addedPoints == partitionSize ) {
+            i++;
+            addedPoints = 0;
+          }
+          if ( i > dataSet.length - 1 && pointCount % placeCount != 0 ) fullPartitionDone = true;
+          
+          // allows residual points to be added to last partition
+          if ( fullPartitionDone ) {
+            i--;
+            fullPartitionDone = false;
+          }         
          }
        }
-       MASS.getLogger().debug("Added " + addedPoints + " points to dataset.");
-       MASS.getLogger().debug("Parsed input file: " + filename + ".");
-       
      } catch ( IOException e ) {
        e.printStackTrace(); 
      }
      return dataSet;
    }
 }
+ 
