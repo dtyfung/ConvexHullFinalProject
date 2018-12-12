@@ -24,4 +24,4 @@ MASS
 2. a) To build: ~/apache-maven-3.6.0/bin/mvn package
    b) To clean: ~/apache-maven-3.6.0/bin/mvn clean
    c) Copy jar: cp ./target/prog5-1.0-SNAPSHOT.jar .
-   d) Run app : java -jar prog5-1.0-SNAPSHOT.jar <# nodes> <input file>
+   d) Run app : java -jar prog5-1.0-SNAPSHOT.jar <# nodes> <# of points> <input file path>
