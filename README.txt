@@ -17,3 +17,11 @@ Spark
    java Gernerator <# of points> <# of point for each line> <xRange> <yRange> <filename>
 3. Copy testing data to the directory that you will run the program. 
 4. to run spark spark-submit --class SparkConvexHull --master spark://cssmpi1.uwb.edu:16766 --executor-memory 2G --total-executor-cores 12 SparkConvexHull.jar <name of the data file>
+
+MASS
+
+1. Copy all source files from /MASSConvexHull 
+2. a) To build: ~/apache-maven-3.6.0/bin/mvn package
+   b) To clean: ~/apache-maven-3.6.0/bin/mvn clean
+   c) Copy jar: cp ./target/prog5-1.0-SNAPSHOT.jar .
+   d) Run app : java -jar prog5-1.0-SNAPSHOT.jar <# nodes> <input file>
