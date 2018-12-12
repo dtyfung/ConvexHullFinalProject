@@ -58,11 +58,7 @@ public class SparkConvexHull {
             return res.iterator();
         } );
 
-        List<Point> templ = localReduced.collect();
-        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + count);
-    
-        // Merge all RDD into 1
-        JavaRDD<Point> global = jsc.parallelize(temp, 1);
+        JavaRDD<Point> global = localReduced.coalesce(1);
 
         // Compute Global convex hall for each part of rdd.
         JavaRDD<Point> globalReduced = global.mapPartitions( theIterator -> {
